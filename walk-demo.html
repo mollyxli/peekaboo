@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Walk Animation Demo</title>
+  <style>
+    body { background: #1a1a2e; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; font-family: sans-serif; color: white; }
+    .stage { position: relative; width: 400px; height: 200px; border-bottom: 2px solid rgba(255,255,255,0.1); margin-bottom: 24px; }
+    .pet { position: absolute; bottom: 0; width: 120px; height: 120px; image-rendering: pixelated; }
+    .controls { display: flex; gap: 12px; margin-bottom: 16px; }
+    button { background: #333; color: white; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 14px; }
+    button:hover { background: #555; }
+    button.active { background: #7c3aed; }
+    .speed-label { font-size: 13px; color: rgba(255,255,255,0.5); margin-top: 8px; }
+    .frames { display: flex; gap: 24px; margin-top: 32px; }
+    .frame-preview { text-align: center; }
+    .frame-preview img { width: 80px; height: 80px; image-rendering: pixelated; background: rgba(255,255,255,0.05); border-radius: 8px; padding: 8px; }
+    .frame-preview p { font-size: 11px; color: rgba(255,255,255,0.4); margin-top: 4px; }
+  </style>
+</head>
+<body>
+  <h3>Walk Animation Demo</h3>
+
+  <div class="stage">
+    <img class="pet" id="pet" src="src/assets/pets/pixel-art/stand_1.png" />
+  </div>
+
+  <div class="controls">
+    <button onclick="setSpeed(300)" id="btn-fast">Slow (300ms)</button>
+    <button onclick="setSpeed(200)" id="btn-med" class="active">Medium (200ms)</button>
+    <button onclick="setSpeed(150)" id="btn-quick">Quick (150ms)</button>
+  </div>
+
+  <div class="controls">
+    <button onclick="toggleWalk()" id="btn-walk">In Place</button>
+    <button onclick="toggleMove()" id="btn-move">Moving</button>
+  </div>
+
+  <div class="controls" id="cycle-buttons"></div>
+
+  <div class="speed-label" id="cycle-label"></div>
+
+  <div class="frames" id="frame-previews"></div>
+
+  <script>
+    const allFrames = {
+      'stand_1': 'src/assets/pets/pixel-art/stand_1.png',
+      'walking': 'src/assets/pets/pixel-art/walking.png',
+      'walking_2': 'src/assets/pets/pixel-art/walking_2.png',
+      'walking_3': 'src/assets/pets/pixel-art/walking_3.png',
+    }
+
+    const cycles = [
+      { name: 'walk + walk_2 only', frames: ['walking', 'walking_2'] },
+      { name: 'walk + walk_3 only', frames: ['walking', 'walking_3'] },
+      { name: 'walk_2 + walk_3 only', frames: ['walking_2', 'walking_3'] },
+      { name: 'walk → walk_2 → walk_3', frames: ['walking', 'walking_2', 'walking_3'] },
+      { name: 'walk → walk_2 → walk → walk_3', frames: ['walking', 'walking_2', 'walking', 'walking_3'] },
+      { name: 'stand → walk → walk_2 → walk_3', frames: ['stand_1', 'walking', 'walking_2', 'walking_3'] },
+      { name: 'stand → walk → stand → walk_2', frames: ['stand_1', 'walking', 'stand_1', 'walking_2'] },
+    ]
+
+    let currentCycle = 0
+
+    const btnContainer = document.getElementById('cycle-buttons')
+    cycles.forEach((c, i) => {
+      const btn = document.createElement('button')
+      btn.textContent = c.name
+      btn.id = 'cycle-' + i
+      btn.onclick = () => selectCycle(i)
+      if (i === 0) btn.classList.add('active')
+      btnContainer.appendChild(btn)
+    })
+
+    function selectCycle(i) {
+      currentCycle = i
+      btnContainer.querySelectorAll('button').forEach(b => b.classList.remove('active'))
+      document.getElementById('cycle-' + i).classList.add('active')
+
+      const c = cycles[i]
+      document.getElementById('cycle-label').textContent = 'Cycle: ' + c.frames.join(' → ') + ' → repeat'
+
+      const previews = document.getElementById('frame-previews')
+      previews.innerHTML = ''
+      c.frames.forEach(name => {
+        const div = document.createElement('div')
+        div.className = 'frame-preview'
+        div.innerHTML = '<img src="' + allFrames[name] + '" /><p>' + name + '</p>'
+        previews.appendChild(div)
+      })
+
+      // Restart animation with new frames
+      if (interval) {
+        const wasMoving = moving
+        stop()
+        wasMoving ? toggleMove() : toggleWalk()
+      }
+    }
+
+    selectCycle(0)
+  </script>
+
+  <script>
+    const pet = document.getElementById('pet')
+    let frameIndex = 0
+    let interval = null
+    let speed = 200
+    let moving = false
+    let posX = 140
+    let direction = 1
+
+    function getFrames() {
+      return cycles[currentCycle].frames.map(name => allFrames[name])
+    }
+
+    function animate() {
+      const f = getFrames()
+      frameIndex = (frameIndex + 1) % f.length
+      pet.src = f[frameIndex]
+      if (moving) {
+        posX += direction * 4
+        if (posX > 280) direction = -1
+        if (posX < 0) direction = 1
+        pet.style.left = posX + 'px'
+        pet.style.transform = direction === 1 ? 'scaleX(-1)' : 'scaleX(1)'
+      }
+    }
+
+    function stop() {
+      clearInterval(interval)
+      interval = null
+      moving = false
+      document.getElementById('btn-walk').classList.remove('active')
+      document.getElementById('btn-move').classList.remove('active')
+    }
+
+    function toggleWalk() {
+      stop()
+      document.getElementById('btn-walk').classList.add('active')
+      moving = false
+      interval = setInterval(animate, speed)
+    }
+
+    function toggleMove() {
+      stop()
+      document.getElementById('btn-move').classList.add('active')
+      moving = true
+      interval = setInterval(animate, speed)
+    }
+
+    function setSpeed(s) {
+      speed = s
+      document.querySelectorAll('.controls:first-of-type button').forEach(b => b.classList.remove('active'))
+      document.getElementById(s === 300 ? 'btn-fast' : s === 200 ? 'btn-med' : 'btn-slow').classList.add('active')
+      if (interval) {
+        const wasMoving = moving
+        stop()
+        if (wasMoving) toggleMove()
+        else toggleWalk()
+      }
+    }
+
+    // Start with walk animation
+    toggleWalk()
+  </script>
+</body>
+</html>
