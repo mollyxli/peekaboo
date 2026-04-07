@@ -145,16 +145,15 @@ export default function Overlay() {
   const [snoozeCount, setSnoozeCount] = useState(0)
   const [isComplete, setIsComplete] = useState(false)
   const [completionMessage, setCompletionMessage] = useState(null)
-  const [petName, setPetName] = useState('Pixel')
+  const petName = 'vector'
   const [blinkClosed, setBlinkClosed] = useState(false)
 
   const countdownRef = useRef(BREAK_DURATION)
   const timerRef = useRef(null)
   const confettiRef = useRef(null)
 
-  const startBreak = useCallback((sc, name) => {
+  const startBreak = useCallback((sc) => {
     setSnoozeCount(sc)
-    setPetName(name || 'Pixel')
     setCountdown(BREAK_DURATION)
     countdownRef.current = BREAK_DURATION
     setIsComplete(false)

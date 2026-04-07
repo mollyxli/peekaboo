@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react'
 
 const DEFAULT_SETTINGS = {
-  petName: 'Pixel',
   workMinutes: 20,
   soundEnabled: true,
   theme: 'dark',
@@ -60,21 +59,6 @@ export default function Settings() {
       </div>
 
       <div className="flex-1">
-        {/* Pet section */}
-        <Section title="Your Pet">
-          <div className="mb-4">
-            <Label>Pet Name</Label>
-            <input
-              type="text"
-              value={settings.petName}
-              onChange={(e) => update('petName', e.target.value)}
-              maxLength={20}
-              className="w-full bg-white/10 border border-white/10 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-purple-500 transition-colors"
-              placeholder="Pixel"
-            />
-          </div>
-        </Section>
-
         {/* Timer section */}
         <Section title="Break Timer">
           <div className="mb-4">

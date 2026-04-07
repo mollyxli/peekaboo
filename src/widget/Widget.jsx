@@ -4,9 +4,9 @@ import sleepingImg2 from '../assets/pets/pixel-art/sleeping_2.png'
 import standImg1 from '../assets/pets/pixel-art/stand_1.png'
 import standImg2 from '../assets/pets/pixel-art/stand_2.png'
 import standWalkImg from '../assets/pets/pixel-art/stand_walk.png'
-import walkingImg1 from '../assets/pets/pixel-art/walking.png'
-import walkingImg2 from '../assets/pets/pixel-art/walking_2.png'
-import walkingImg3 from '../assets/pets/pixel-art/walking_3.png'
+import walkingImg1 from '../assets/pets/pixel-art/walking_v2_1.png'
+import walkingImg2 from '../assets/pets/pixel-art/walking_v2_2.png'
+import walkingImg3 from '../assets/pets/pixel-art/walking_v2_3.png'
 import sadImg from '../assets/pets/pixel-art/sad.png'
 import angryImg from '../assets/pets/pixel-art/angry.png'
 import happyImg from '../assets/pets/pixel-art/happy.png'
@@ -250,7 +250,7 @@ function CrossfadeSprite({ displayMood }) {
 
 // ── Main widget component ─────────────────────────────────────────────────────
 export default function Widget() {
-  const { mood, setMood, petName, setPetName, streak, setStreak, setIsHovered, idleBehavior, setIdleBehavior } = usePetStore()
+  const { mood, setMood, streak, setStreak, setIsHovered, idleBehavior, setIdleBehavior } = usePetStore()
   const { countdown, setCountdown, snoozeCount, setSnoozeCount, setIsPaused, formatTime } = useTimerStore()
 
   const [speechBubble, setSpeechBubble] = useState(null)
@@ -319,7 +319,6 @@ export default function Widget() {
         window.electronAPI.getStreak(),
         window.electronAPI.getTimerState(),
       ])
-      setPetName(settings.petName || 'Pixel')
       setStreak(streakData.currentStreak || 0)
       setCountdown(timerState.seconds)
       setSnoozeCount(timerState.snoozeCount)
@@ -391,9 +390,7 @@ export default function Widget() {
         setIsPaused(paused)
       },
 
-      'settings:updated': (settings) => {
-        setPetName(settings.petName || 'Pixel')
-      },
+      'settings:updated': () => {},
     }
 
     const wrappedHandlers = {}
