@@ -4,9 +4,9 @@ import sleepingImg2 from '../assets/pets/pixel-art/sleeping_2.png'
 import standImg1 from '../assets/pets/pixel-art/stand_1.png'
 import standImg2 from '../assets/pets/pixel-art/stand_2.png'
 import standWalkImg from '../assets/pets/pixel-art/stand_walk.png'
-import walkingImg1 from '../assets/pets/pixel-art/walking_v2_1.png'
-import walkingImg2 from '../assets/pets/pixel-art/walking_v2_2.png'
-import walkingImg3 from '../assets/pets/pixel-art/walking_v2_3.png'
+import walkingImg1 from '../assets/pets/pixel-art/walking_v4_1.png'
+import walkingImg2 from '../assets/pets/pixel-art/walking_v4_2.png'
+import walkingImg3 from '../assets/pets/pixel-art/walking_v4_3.png'
 import sadImg from '../assets/pets/pixel-art/sad.png'
 import angryImg from '../assets/pets/pixel-art/angry.png'
 import happyImg from '../assets/pets/pixel-art/happy.png'
@@ -440,13 +440,14 @@ export default function Widget() {
     const y = pos[1]
     let direction = Math.random() < 0.5 ? -1 : 1
     setWalkingDir(direction)
-    const pxPerTick = 1 // 1px per tick
-    const tickMs = 180 // slower stroll
+    const pxPerTick = 3 // 3px per tick
+    const tickMs = 200 // slower stroll
 
-    let frame = 0
+    const frameSeq = [0, 1, 2, 1] // 1→2→3→2 ping-pong
+    let frameIdx = 0
     walkIntervalRef.current = setInterval(() => {
-      frame = (frame + 1) % 3
-      setWalkingFrame(frame)
+      frameIdx = (frameIdx + 1) % frameSeq.length
+      setWalkingFrame(frameSeq[frameIdx])
       let nextX = x + direction * pxPerTick
 
       // Turn around (and flip body) when hitting screen edges
