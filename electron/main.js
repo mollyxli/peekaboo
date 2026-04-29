@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, screen, nativeImage } = require('electron')
+const { app, BrowserWindow, ipcMain, screen, nativeImage, powerMonitor } = require('electron')
 const path = require('path')
 const Store = require('electron-store')
 
@@ -16,6 +16,11 @@ let snoozeCount = 0
 let isPaused = false
 let alertSent = false
 let timerActive = false
+// Pauses the countdown when the user is away from the screen (lock, sleep,
+// or system idle). Tracked separately from `isPaused` so an OS event doesn't
+// clobber a manual pause and vice versa.
+let systemAway = false
+const IDLE_PAUSE_THRESHOLD_SECONDS = 60
 
 // ── URL helpers ───────────────────────────────────────────────────────────────
 function getURL(page) {
@@ -120,7 +125,12 @@ function startTimer(seconds) {
   timerActive = true
 
   timerInterval = setInterval(() => {
-    if (isPaused) return
+    if (isPaused || systemAway) return
+    // Backstop: on macOS, display sleep without "require password" doesn't
+    // fire lock-screen, so also freeze if the user has been idle a while.
+    try {
+      if (powerMonitor.getSystemIdleTime() >= IDLE_PAUSE_THRESHOLD_SECONDS) return
+    } catch {}
     timerSeconds = Math.max(0, timerSeconds - 1)
 
     broadcast('timer:tick', timerSeconds)
@@ -280,6 +290,15 @@ app.whenReady().then(() => {
   createWidgetWindow()
   createOverlayWindow()
   setupIPC()
+
+  // Freeze the countdown when the user is away from the screen so a 20-min
+  // timer can't fire while the display is asleep or locked.
+  const markAway = () => { systemAway = true }
+  const markBack = () => { systemAway = false }
+  powerMonitor.on('suspend', markAway)
+  powerMonitor.on('lock-screen', markAway)
+  powerMonitor.on('resume', markBack)
+  powerMonitor.on('unlock-screen', markBack)
 
   // Setup tray after windows exist
   const { setupTray, updateTrayStreak } = require('./tray')

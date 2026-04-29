@@ -55,6 +55,10 @@ function setupTray(callbacks) {
     icon = createFallbackIcon()
   }
 
+  // Template flag tells macOS to auto-invert the icon for light/dark menu bars.
+  // Requires a black-on-transparent source — color is ignored.
+  if (process.platform === 'darwin') icon.setTemplateImage(true)
+
   tray = new Tray(icon)
   tray.setToolTip('Pixel Pal')
   tray.setContextMenu(buildMenu(callbacks))

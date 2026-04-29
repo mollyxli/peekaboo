@@ -18,6 +18,34 @@ const COMPLETION_MESSAGES = [
 
 const CONFETTI_COLORS = ['#f5c542', '#D4537E', '#A4D944', '#7AAE1A', '#534AB7', '#f0ead6', '#7F77DD']
 
+// Synthesizes a short two-note bell chime via Web Audio so we don't need an asset.
+function playBellChime() {
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext
+    if (!Ctx) return
+    const ctx = new Ctx()
+    const now = ctx.currentTime
+    const notes = [
+      { freq: 988, start: 0,    dur: 1.4 }, // B5
+      { freq: 1319, start: 0.18, dur: 1.4 }, // E6
+    ]
+    notes.forEach(({ freq, start, dur }) => {
+      const t0 = now + start
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.type = 'sine'
+      osc.frequency.value = freq
+      gain.gain.setValueAtTime(0, t0)
+      gain.gain.linearRampToValueAtTime(0.25, t0 + 0.01)
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur)
+      osc.connect(gain).connect(ctx.destination)
+      osc.start(t0)
+      osc.stop(t0 + dur + 0.05)
+    })
+    setTimeout(() => ctx.close(), 1800)
+  } catch {}
+}
+
 // ── Pixel-art CTA button ────────────────────────────────────────────────────
 // SVG edges for the stepped shape + uniform border via CSS border on content.
 import unionSideDark from '../assets/ui/union-side-dark.svg'
@@ -151,6 +179,7 @@ export default function Overlay() {
   const countdownRef = useRef(BREAK_DURATION)
   const timerRef = useRef(null)
   const confettiRef = useRef(null)
+  const soundEnabledRef = useRef(true)
 
   const startBreak = useCallback((sc) => {
     setSnoozeCount(sc)
@@ -213,10 +242,22 @@ export default function Overlay() {
     }
   }, [])
 
-  // Fire confetti when complete
+  // Fire confetti + bell when complete. The bell matters most here: the user
+  // is looking 20ft away, so the audio cue is how they know they can come back.
   useEffect(() => {
-    if (isComplete) spawnConfetti()
+    if (!isComplete) return
+    spawnConfetti()
+    if (soundEnabledRef.current) playBellChime()
   }, [isComplete, spawnConfetti])
+
+  // Load sound preference once on mount
+  useEffect(() => {
+    let cancelled = false
+    window.electronAPI.getSettings().then((s) => {
+      if (!cancelled) soundEnabledRef.current = s?.soundEnabled !== false
+    }).catch(() => {})
+    return () => { cancelled = true }
+  }, [])
 
   // Countdown tick
   useEffect(() => {
