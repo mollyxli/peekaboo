@@ -20,7 +20,10 @@ let timerActive = false
 // or system idle). Tracked separately from `isPaused` so an OS event doesn't
 // clobber a manual pause and vice versa.
 let systemAway = false
-const IDLE_PAUSE_THRESHOLD_SECONDS = 60
+// 5 min: long enough that reading or watching a video doesn't pause the
+// timer, short enough to catch "stepped away from desk" cases.
+const IDLE_PAUSE_THRESHOLD_SECONDS = 300
+const ACTIVE_RESUME_THRESHOLD_SECONDS = 5
 
 // ── URL helpers ───────────────────────────────────────────────────────────────
 function getURL(page) {
@@ -125,12 +128,17 @@ function startTimer(seconds) {
   timerActive = true
 
   timerInterval = setInterval(() => {
+    let idleSec = 0
+    try { idleSec = powerMonitor.getSystemIdleTime() } catch {}
+
+    // If a lock/unlock event got dropped, recent activity unsticks systemAway.
+    if (systemAway && idleSec < ACTIVE_RESUME_THRESHOLD_SECONDS) systemAway = false
+
     if (isPaused || systemAway) return
     // Backstop: on macOS, display sleep without "require password" doesn't
     // fire lock-screen, so also freeze if the user has been idle a while.
-    try {
-      if (powerMonitor.getSystemIdleTime() >= IDLE_PAUSE_THRESHOLD_SECONDS) return
-    } catch {}
+    if (idleSec >= IDLE_PAUSE_THRESHOLD_SECONDS) return
+
     timerSeconds = Math.max(0, timerSeconds - 1)
 
     broadcast('timer:tick', timerSeconds)

@@ -250,13 +250,18 @@ export default function Overlay() {
     if (soundEnabledRef.current) playBellChime()
   }, [isComplete, spawnConfetti])
 
-  // Load sound preference once on mount
+  // Load sound preference and stay in sync with settings updates.
   useEffect(() => {
     let cancelled = false
+    const apply = (s) => { soundEnabledRef.current = s?.soundEnabled !== false }
     window.electronAPI.getSettings().then((s) => {
-      if (!cancelled) soundEnabledRef.current = s?.soundEnabled !== false
+      if (!cancelled) apply(s)
     }).catch(() => {})
-    return () => { cancelled = true }
+    const wrapped = window.electronAPI.on('settings:updated', apply)
+    return () => {
+      cancelled = true
+      window.electronAPI.off('settings:updated', wrapped)
+    }
   }, [])
 
   // Countdown tick
