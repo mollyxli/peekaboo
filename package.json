@@ -1,6 +1,6 @@
 {
   "name": "pixel-pal",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "description": "A pixel art desktop pet that reminds you to take breaks",
   "author": "Molly Li",
   "main": "electron/main.js",

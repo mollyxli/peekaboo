@@ -126,6 +126,7 @@ function startTimer(seconds) {
   timerSeconds = seconds
   alertSent = false
   timerActive = true
+  let wasAway = false
 
   timerInterval = setInterval(() => {
     let idleSec = 0
@@ -134,10 +135,19 @@ function startTimer(seconds) {
     // If a lock/unlock event got dropped, recent activity unsticks systemAway.
     if (systemAway && idleSec < ACTIVE_RESUME_THRESHOLD_SECONDS) systemAway = false
 
-    if (isPaused || systemAway) return
     // Backstop: on macOS, display sleep without "require password" doesn't
     // fire lock-screen, so also freeze if the user has been idle a while.
-    if (idleSec >= IDLE_PAUSE_THRESHOLD_SECONDS) return
+    const isAway = systemAway || idleSec >= IDLE_PAUSE_THRESHOLD_SECONDS
+
+    // User just returned from being away — they've had their break, restart fresh.
+    if (wasAway && !isAway) {
+      broadcast('timer:tick', 20 * 60)
+      startTimer(20 * 60)
+      return
+    }
+    wasAway = isAway
+
+    if (isPaused || isAway) return
 
     timerSeconds = Math.max(0, timerSeconds - 1)
 
@@ -156,9 +166,17 @@ function startTimer(seconds) {
   }, 1000)
 }
 
+function fitOverlayToCurrentDisplay() {
+  if (!overlayWindow || overlayWindow.isDestroyed()) return
+  const cursor = screen.getCursorScreenPoint()
+  const { bounds } = screen.getDisplayNearestPoint(cursor)
+  overlayWindow.setBounds(bounds)
+}
+
 function onTimerFired() {
   send(widgetWindow, 'timer:fire', { snoozeCount })
   if (overlayWindow && !overlayWindow.isDestroyed()) {
+    fitOverlayToCurrentDisplay()
     overlayWindow.show()
     overlayWindow.focus()
     const settings = store.get('settings', { petName: 'Pixel' })
@@ -166,6 +184,7 @@ function onTimerFired() {
   } else {
     createOverlayWindow()
     overlayWindow.once('ready-to-show', () => {
+      fitOverlayToCurrentDisplay()
       overlayWindow.show()
       overlayWindow.focus()
       const settings = store.get('settings', { petName: 'Pixel' })
@@ -300,9 +319,37 @@ app.whenReady().then(() => {
   setupIPC()
 
   // Freeze the countdown when the user is away from the screen so a 20-min
-  // timer can't fire while the display is asleep or locked.
+  // timer can't fire while the display is asleep or locked. Restart fresh on
+  // return — the suspend/resume path can't rely on the per-second tick because
+  // setInterval is frozen during sleep, and `resume` clears systemAway before
+  // the next tick can observe the wasAway→!isAway transition.
   const markAway = () => { systemAway = true }
-  const markBack = () => { systemAway = false }
+  const markBack = () => {
+    const wasAway = systemAway
+    systemAway = false
+    if (wasAway && timerActive) {
+      broadcast('timer:tick', 20 * 60)
+      startTimer(20 * 60)
+    }
+  }
+  // If display config changes while the overlay is already showing
+  // (monitor plugged/unplugged, resolution change), refit it.
+  screen.on('display-metrics-changed', () => {
+    if (overlayWindow && !overlayWindow.isDestroyed() && overlayWindow.isVisible()) {
+      fitOverlayToCurrentDisplay()
+    }
+  })
+  screen.on('display-added', () => {
+    if (overlayWindow && !overlayWindow.isDestroyed() && overlayWindow.isVisible()) {
+      fitOverlayToCurrentDisplay()
+    }
+  })
+  screen.on('display-removed', () => {
+    if (overlayWindow && !overlayWindow.isDestroyed() && overlayWindow.isVisible()) {
+      fitOverlayToCurrentDisplay()
+    }
+  })
+
   powerMonitor.on('suspend', markAway)
   powerMonitor.on('lock-screen', markAway)
   powerMonitor.on('resume', markBack)

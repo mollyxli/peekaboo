@@ -205,19 +205,28 @@ function CrossfadeSprite({ displayMood }) {
       setBlinkClosed(false)
       return
     }
-    let timeout
+    let cancelled = false
+    let openTimeout
+    let closeTimeout
     const scheduleBlink = (first) => {
+      if (cancelled) return
       const delay = first ? randomBetween(400, 800) : randomBetween(1500, 4000)
-      timeout = setTimeout(() => {
+      openTimeout = setTimeout(() => {
+        if (cancelled) return
         setBlinkClosed(true)
-        setTimeout(() => {
+        closeTimeout = setTimeout(() => {
+          if (cancelled) return
           setBlinkClosed(false)
           scheduleBlink(false)
         }, BLINK_DURATION)
       }, delay)
     }
     scheduleBlink(true)
-    return () => clearTimeout(timeout)
+    return () => {
+      cancelled = true
+      clearTimeout(openTimeout)
+      clearTimeout(closeTimeout)
+    }
   }, [isStanding])
 
   if (isSleeping) {
@@ -257,6 +266,7 @@ export default function Widget() {
   const [milestoneMsg, setMilestoneMsg] = useState(null)
   const [walkingFrame, setWalkingFrame] = useState(null) // null | 0 | 1 | 2
   const [walkingDir, setWalkingDir] = useState(1) // 1 = facing right (default), -1 = facing left (flipped)
+  const [dragSleepLock, setDragSleepLock] = useState(false)
   const walkTimeoutRef = useRef(null)
   const walkIntervalRef = useRef(null)
 
@@ -267,6 +277,8 @@ export default function Widget() {
   const idleIntervalRef = useRef(null)
   const idleTimeoutRef = useRef(null)
   const speechTimerRef = useRef(null)
+  const hoverWakeTimeoutRef = useRef(null)
+  const hoverSleepTimeoutRef = useRef(null)
 
   // ── Helpers ────────────────────────────────────────────────────────────────
   const showSpeech = useCallback((msg, duration = 4000) => {
@@ -409,6 +421,12 @@ export default function Widget() {
   const handleMouseDown = useCallback(async (e) => {
     if (e.button !== 0) return
     e.preventDefault()
+    clearTimeout(hoverWakeTimeoutRef.current)
+    clearTimeout(hoverSleepTimeoutRef.current)
+    if (isSleepingRef.current) {
+      setIdleBehavior('sleeping')
+      setDragSleepLock(true)
+    }
     const pos = await window.electronAPI.getWindowPosition()
     dragStart.current = {
       mouseX: e.screenX,
@@ -417,7 +435,7 @@ export default function Widget() {
       winY: pos[1],
     }
     isDragging.current = true
-  }, [])
+  }, [setIdleBehavior])
 
   const handleMouseMove = useCallback((e) => {
     if (!isDragging.current) return
@@ -477,6 +495,7 @@ export default function Widget() {
   const handleMouseUp = useCallback(async (e) => {
     if (!isDragging.current) return
     isDragging.current = false
+    setDragSleepLock(false)
     const dx = e.screenX - dragStart.current.mouseX
     const dy = e.screenY - dragStart.current.mouseY
     // Click (not drag) if mouse barely moved — trigger walking
@@ -509,21 +528,26 @@ export default function Widget() {
   // ── Hover wake-up ──────────────────────────────────────────────────────────
   const handleMouseEnter = useCallback(() => {
     setIsHovered(true)
-    if (isSleepingRef.current) {
+    if (!isSleepingRef.current) return
+    clearTimeout(hoverWakeTimeoutRef.current)
+    clearTimeout(hoverSleepTimeoutRef.current)
+    hoverWakeTimeoutRef.current = setTimeout(() => {
+      if (!isSleepingRef.current || isDragging.current) return
       setIdleBehavior('looking')
-      setTimeout(() => {
+      hoverSleepTimeoutRef.current = setTimeout(() => {
         if (isSleepingRef.current) setIdleBehavior('sleeping')
       }, 2500)
-    }
+    }, 500)
   }, [setIdleBehavior, setIsHovered])
 
   const handleMouseLeave = useCallback(() => {
     setIsHovered(false)
+    clearTimeout(hoverWakeTimeoutRef.current)
   }, [setIsHovered])
 
   // ── Render ─────────────────────────────────────────────────────────────────
   const isIdleMood = mood === 'sleeping'
-  const displayMood = isIdleMood ? idleBehavior : mood
+  const displayMood = dragSleepLock ? 'sleeping' : (isIdleMood ? idleBehavior : mood)
   const moodConfig = MOODS[displayMood] || MOODS.sleeping
   const minutes = Math.floor(countdown / 60)
   const timeDisplay = minutes > 0 ? `${minutes}m` : '🔔'
@@ -561,17 +585,6 @@ export default function Widget() {
 
       {/* Sprite — grounded in the corner, no container chrome */}
       <div className={['relative w-full h-full flex items-end justify-center', moodConfig.animation].join(' ')}>
-
-        {/* Soft shadow ellipse — makes it look like it's sitting on a surface */}
-        <div
-          className="absolute bottom-0 left-1/2 -translate-x-1/2 rounded-full"
-          style={{
-            width: '70%',
-            height: '10px',
-            background: 'radial-gradient(ellipse, rgba(0,0,0,0.25) 0%, transparent 70%)',
-            filter: 'blur(4px)',
-          }}
-        />
 
         {walkingFrame !== null ? (
           <img

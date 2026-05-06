@@ -250,6 +250,15 @@ export default function Overlay() {
     if (soundEnabledRef.current) playBellChime()
   }, [isComplete, spawnConfetti])
 
+  // Warm assets only used on the completion screen so the Back-to-work button
+  // and happy pet don't pop in unstyled when isComplete first flips.
+  useEffect(() => {
+    ;[unionSideGreen, unionCornerGreen, happySprite].forEach((src) => {
+      const img = new Image()
+      img.src = src
+    })
+  }, [])
+
   // Load sound preference and stay in sync with settings updates.
   useEffect(() => {
     let cancelled = false
